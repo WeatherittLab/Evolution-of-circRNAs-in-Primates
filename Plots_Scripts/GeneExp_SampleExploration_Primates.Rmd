@@ -1,0 +1,249 @@
+---
+title: "GeneExp_SampleExploration_Primates"
+author: "Gaby"
+date: "11/12/2020"
+output: html_document
+---
+
+```{r, message=FALSE}
+
+library(pheatmap)
+library(factoextra)
+#library(edgeR)
+
+library(ggplot2)
+library(reshape2)
+library(stringr)
+
+library(wesanderson)
+
+```
+
+
+
+####Read files
+
+```{r}
+
+
+###CHEC HOW TO MAKE THIS DATAFRAME WITH NEW SAMPLES
+
+Human_DF = read.delim(file="~/lab_Garvan/Primates/HumanGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+
+#Human_DF$Human_SkeletalMuscle_3 = NULL
+#Human_DF$Human_Heart_4 = NULL
+#Human_DF$Human_Kidney_1 = NULL
+
+
+#Human_DF = read.delim(file="~/lab_Garvan/Primates/HumanGeneExp_Kaesssman.txt",
+#            header = TRUE, as.is = TRUE)
+
+#Human_DF = read.delim(file = "~/lab_Garvan/Primates/HumanGeneExp_KaesssmanHumanSamples.txt",
+#            header = TRUE, as.is = TRUE)
+
+#######################################
+
+
+Macaque_DF = read.delim(file="~/lab_Garvan/Primates/MacaqueGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+Macaque_DF$Macaque_Testes_1 = NULL
+Macaque_DF$Macaque_Ovaries_1 = NULL
+
+Macaca_DF = read.delim(file="~/lab_Garvan/Primates/MacacaGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+
+Chimp_DF = read.delim(file="~/lab_Garvan/Primates/ChimpGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+
+Baboon_DF = read.delim(file="~/lab_Garvan/Primates/BaboonGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+
+Lemur_DF = read.delim(file="~/lab_Garvan/Primates/LemurGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+
+SquirrelMonkey_DF = read.delim(file="~/lab_Garvan/Primates/SquirrelMonkeyGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+  
+Marmoset_DF = read.delim(file="~/lab_Garvan/Primates/MarmosetGeneExp.txt",
+            header = TRUE, as.is = TRUE)
+
+###All PrimatesExpression
+
+PrimatesExpre = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/ExpressionOrthPrimates.txt",
+                           header = TRUE, as.is = TRUE)
+
+#PrimatesExpre$Human_SkeletalMuscle_3 = NULL
+#PrimatesExpre$Human_Heart_4 = NULL
+#PrimatesExpre$Human_Kidney_1 = NULL
+#PrimatesExpre$Macaque_Testes_1 = NULL
+#PrimatesExpre$Macaque_Ovaries_1 = NULL
+
+PrimatesExpre_log = log2(PrimatesExpre+1)
+
+
+###Orthologues info
+
+#Get Orthologues info
+
+All_orth=read.delim(file="/home/gaby/lab_Garvan/Primates/One2One_Orthologues/AllOrth_AllPrimates.txt",
+                    header = TRUE, as.is = TRUE)
+#Rename colums as primate
+colnames(All_orth) = c("Human", "Chimp", "Lemur", "Macaque", "Macaca", "Marmoset", "Squirrel Monkey", "Baboon")
+
+
+```
+
+
+Filter <Primate>_DF according to Ortholgoues and transform to log2
+
+```{r}
+
+GetOrths_TrsfLog <-function(Primate_DF, All_orth, primate) {
+  
+  common = intersect(rownames(Primate_DF), All_orth[,primate])
+  
+  Primate_DF_orth = Primate_DF[common,]
+  
+  Primate_DF_orth = Primate_DF_orth+1
+  
+  Primate_DF_orth = log2(Primate_DF_orth)
+  
+  return(Primate_DF_orth)
+  
+  }
+
+
+Human_DForth = GetOrths_TrsfLog(Human_DF, All_orth, "Human")
+
+Macaque_DForth = GetOrths_TrsfLog(Macaque_DF, All_orth, "Macaque")
+  
+Macaca_DForth = GetOrths_TrsfLog(Macaca_DF, All_orth, "Macaca")
+  
+Chimp_DForth = GetOrths_TrsfLog(Chimp_DF, All_orth, "Chimp")
+  
+Baboon_DForth = GetOrths_TrsfLog(Baboon_DF, All_orth, "Baboon")
+  
+Lemur_DForth = GetOrths_TrsfLog(Lemur_DF, All_orth, "Lemur")
+  
+SquirrelMonkey_DForth = GetOrths_TrsfLog(SquirrelMonkey_DF, All_orth, "Squirrel Monkey")
+  
+Marmoset_DForth = GetOrths_TrsfLog(Marmoset_DF, All_orth, "Marmoset")
+  
+
+```
+
+
+With the filtered and transformed log2 do the plots
+```{r}
+
+#Make function that makes a pca for each primate dataframe
+
+MakePCA <- function(Primate_DF) {
+  
+  tissues = unique(gsub(".*[_]([^.]+)[_].*", "\\1", colnames(Primate_DF)))
+  #print(unique(tissues))
+  
+  colors =  c(wes_palette("Cavalcanti1"), wes_palette("GrandBudapest1"), wes_palette("Darjeeling1"), wes_palette("Moonrise2"))
+  #col.tissues = rainbow(length(tissues))[factor(gsub(".*[_]([^.]+)[_].*", "\\1", colnames(Primate_DF)))]
+  
+  col.tissues = colors[1:length(tissues)][factor(gsub(".*[_]([^.]+)[_].*", "\\1", colnames(Primate_DF)))]
+  
+  TPMs_PCA = prcomp(t(Primate_DF))
+  fviz_eig(TPMs_PCA)
+  
+  
+  plot = fviz_pca_ind(TPMs_PCA,
+                      col.ind =  factor(gsub(".*[_]([^.]+)[_].*", "\\1", colnames(Primate_DF))) ,
+             palette = unique(col.tissues), geom.var=c("point"))
+  
+  
+  return(print(plot))
+  
+}
+
+####Check expression samples clustering
+
+plotHuman = MakePCA(Human_DForth)
+
+plotMacaque = MakePCA(Macaque_DForth)
+
+plotMacaca = MakePCA(Macaca_DForth)
+plotChimp = MakePCA(Chimp_DForth)
+plotBaboon = MakePCA(Baboon_DForth)
+plotLemur = MakePCA(Lemur_DForth)
+plotSquirrelMonkey = MakePCA(SquirrelMonkey_DForth)
+plotMarmoset = MakePCA(Marmoset_DForth)
+
+```
+
+```{r,fig.width=12, fig.height=12}
+##########
+
+
+plotAllorth = MakePCA(PrimatesExpre_log)
+
+##Only human and Chimp
+
+#plotAllorth = MakePCA(PrimatesExpre_log[,grep("Human|Chimp", colnames(PrimatesExpre_log))])
+
+#plotAllorth = MakePCA(PrimatesExpre_log[,grep("Human", colnames(PrimatesExpre_log), invert = TRUE)])
+
+
+```
+
+
+
+
+
+```{r, fig.width=15, fig.height=15}
+
+
+#Check if using the top n most variable genes you get a better clustering of the correlation heatmap
+var_genes = apply(PrimatesExpre_log, 1, var)
+
+select_var = names(sort(var_genes, decreasing = TRUE))[1:1000]
+
+HighVarGenes = PrimatesExpre_log[select_var,]
+
+###Calculate pearson correlation between all the samples with orthologue genes
+
+Corr_Expr = as.data.frame(matrix(ncol=ncol(PrimatesExpre_log), nrow = ncol(PrimatesExpre_log)))
+colnames(Corr_Expr) = colnames(PrimatesExpre_log)
+rownames(Corr_Expr) = colnames(PrimatesExpre_log)
+
+
+Corr_Expr = as.data.frame(matrix(ncol=ncol(HighVarGenes), nrow = ncol(HighVarGenes)))
+colnames(Corr_Expr) = colnames(HighVarGenes)
+rownames(Corr_Expr) = colnames(HighVarGenes)
+
+
+
+for (c in colnames(Corr_Expr)) {
+  
+  for (d in rownames(Corr_Expr)) {
+    
+    cor = cor.test(HighVarGenes[,c], HighVarGenes[,d],
+                   method = "pearson", alternative = "greater")
+    
+    Corr_Expr[d,c] = cor$estimate
+    
+  }
+  
+}
+
+
+pheatmap(data.matrix(Corr_Expr),
+         fontsize_row = 7, fontsize_col = 7,
+         cellwidth = 7, cellheight = 7,
+         treeheight_row = 0, treeheight_col = 0)
+
+
+```
+
+
+
+
+
+
+

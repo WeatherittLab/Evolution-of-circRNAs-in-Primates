@@ -1,0 +1,340 @@
+---
+title: "Heatmap_PSI_BSJ_ShrunkenCentroids"
+author: "Gaby"
+date: "3/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(pheatmap)
+library(factoextra)
+#library(edgeR)
+
+library(ggplot2)
+library(reshape2)
+library(stringr)
+
+
+library(dplyr)
+library(tibble)
+
+library(wesanderson)
+
+```
+
+
+Load PSI dataframe, List that makes the UpSetPlot
+
+```{r}
+
+#PSI file
+Primates_circRNA_PSI = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/PSI_Primates_ConsvBSJ.txt",
+            header = TRUE, as.is = TRUE)
+
+#######################Read list UpSetPlot
+load(file ="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/Primates_circRNA_BSJconsv")
+
+
+```
+
+```{r}
+
+#Get intersections as in upsetplot
+
+fromList <- function (input) {
+  # Same as original fromList()...
+  elements <- unique(unlist(input))
+  data <- unlist(lapply(input, function(x) {
+      x <- as.vector(match(elements, x))
+      }))
+  data[is.na(data)] <- as.integer(0)
+  data[data != 0] <- as.integer(1)
+  data <- data.frame(matrix(data, ncol = length(input), byrow = F))
+  data <- data[which(rowSums(data) != 0), ]
+  names(data) <- names(input)
+  # ... Except now it conserves your original value names!
+  row.names(data) <- elements
+  return(data)
+  }
+
+
+BinTable = fromList(Primates_circRNA_BSJconsv)
+
+
+
+```
+
+
+```{r}
+
+#Make a function that according to n primates we get the intersection of circRNAs_IDs that are shared between them as shown in the UpSetPlot
+
+#With those IDs filter the circRNA_PSI dataframe
+
+GetIDs_PSI_ofInterest <-function(List_ConsvCircRNAs, PSI_DF, primates) {
+  
+  #Get IDs of primates of interest
+  IDs_primates = Reduce(intersect, List_ConsvCircRNAs[primates])
+  
+  #Get IDs of the other primates
+  IDs_OtherPrimates = Reduce(union, List_ConsvCircRNAs[grep(paste(primates, collapse = "|"), names(List_ConsvCircRNAs), invert = TRUE)])
+  
+  #Get the IDs that are only in the primates of interest
+  IDs_primates = setdiff(IDs_primates, IDs_OtherPrimates)
+  
+  ###With IDs_primates subset PSI_DF
+  primates= gsub(" ", "", primates) #In the case of Squirrel Monkey, List Name has a blank space but colnames in PSI_DF dont,
+  PSI_filt = PSI_DF[IDs_primates, grep(paste(primates, collapse = "|"), colnames(PSI_DF))]
+  
+  return(PSI_filt)
+  
+}
+
+
+#HumanUntilOldWorld_PSI = GetIDs_PSI_ofInterest(Primates_circRNA_BSJconsv, Primates_circRNA_PSI, c("Human","Chimp","Baboon","Macaque","Macaca"))
+
+
+#HumanChimpBaboon_PSI = GetIDs_PSI_ofInterest(Primates_circRNA_BSJconsv, Primates_circRNA_PSI, c("Human", "Chimp", "Baboon"))
+
+
+```
+
+
+
+Make a Correlation HeatMap of HumanUntilOldWorld_PSI
+
+```{r,fig.height=13, fig.width=13}
+
+###Calculate pearson correlation between all the samples of HumanUntilOldWorld_PSI
+
+###Change NAs to zero
+#HumanUntilOldWorld_PSI[is.na(HumanUntilOldWorld_PSI)] <- 0
+
+#Corr_PSI = as.data.frame(matrix(ncol=ncol(HumanUntilOldWorld_PSI), nrow = ncol(HumanUntilOldWorld_PSI)))
+#colnames(Corr_PSI) = colnames(HumanUntilOldWorld_PSI)
+#rownames(Corr_PSI) = colnames(HumanUntilOldWorld_PSI)
+
+#############################
+
+#HumanChimpBaboon_PSI[is.na(HumanChimpBaboon_PSI)] <- 0
+
+#Corr_PSI = as.data.frame(matrix(ncol=ncol(HumanChimpBaboon_PSI), nrow = ncol(HumanChimpBaboon_PSI)))
+#colnames(Corr_PSI) = colnames(HumanChimpBaboon_PSI)
+#rownames(Corr_PSI) = colnames(HumanChimpBaboon_PSI)
+
+#########################
+
+
+#for (c in colnames(Corr_PSI)) {
+  
+  #for (d in rownames(Corr_PSI)) {
+    
+    #cor = cor.test(HumanUntilOldWorld_PSI[,c],HumanUntilOldWorld_PSI[,d],
+    #               method = "pearson", alternative = "greater")
+    
+    
+    #cor = cor.test(HumanChimpBaboon_PSI[,c],HumanChimpBaboon_PSI[,d],
+                   method = "pearson", alternative = "greater")
+  
+
+    #print(c(c, d))
+    
+    #Corr_PSI[d,c] = cor$estimate
+    
+  #}
+  
+}
+
+
+#pheatmap(data.matrix(Corr_PSI),
+#         fontsize_row = 7, fontsize_col = 7,
+#         cellwidth = 7, cellheight = 7,
+#         treeheight_row = 0, treeheight_col = 0)
+
+
+
+```
+
+
+Make Heatmap with all the intersections that have chimp or bonobo (obiously human) and any other primate
+
+```{r}
+
+#Make intersections where there is baboon, or chimp or both
+
+#With those IDs filter the circRNA_PSI dataframe
+
+GetIDs <-function(List_ConsvCircRNAs, primates) {
+  
+  #Get IDs of primates of interest
+  IDs_primates = Reduce(intersect, List_ConsvCircRNAs[primates])
+  
+  #Get IDs of the other primates
+  IDs_OtherPrimates = Reduce(union, List_ConsvCircRNAs[grep(paste(primates, collapse = "|"), names(List_ConsvCircRNAs), invert = TRUE)])
+  
+  #Get the IDs that are only in the primates of interest
+  IDs_primates = setdiff(IDs_primates, IDs_OtherPrimates)
+  
+  ###With IDs_primates subset PSI_DF
+  #primates= gsub(" ", "", primates) #In the case of Squirrel Monkey, List Name has a blank space but colnames in PSI_DF dont,
+  #PSI_filt = PSI_DF[IDs_primates, grep(paste(primates, collapse = "|"), colnames(PSI_DF))]
+  
+  return(IDs_primates)
+  
+}
+
+
+HumanChimpBaboon = GetIDs(Primates_circRNA_BSJconsv, c("Human","Chimp","Baboon")) #142; 141
+
+HumanOldWorld = GetIDs(Primates_circRNA_BSJconsv, c("Human","Chimp","Baboon", "Macaca", "Macaque")) #113; 109
+  
+HumanOldNotMacaca = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon","Macaque")) #110; 107
+
+Human2BaboonAndMacaca = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaca")) #51; 50  
+
+Human2MacaqueAndMarmoset = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Marmoset")) #52; 50
+  
+HumanUntilMarmoset = GetIDs(Primates_circRNA_BSJconsv, c("Human","Chimp", "Baboon", "Macaca", "Macaque", "Marmoset")) #42; 40
+  
+HumanChimpBaboonAndMarmoset = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Marmoset")) #40; 34
+
+HumanUntilSquirrel = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Macaca", "Marmoset", "Squirrel Monkey")) #33; 32
+  
+HumanUntilSquirrelNotMarmo = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Macaca", "Squirrel Monkey")) #31; 31
+
+HumanChimpBabMacacaMarmo = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaca", "Marmoset")) #24; 21
+
+HCB_MacaqSquiMonk = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp","Baboon", "Macaque", "Squirrel Monkey"))
+
+HCB_MacacaSquiMonk = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaca", "Squirrel Monkey"))
+
+HCB_MacaqMacacaLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Macaca", "Lemur")) 
+
+HCB_MacaqMacacaMarmoLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Macaca", "Marmoset", "Lemur"))
+
+HCB_MacaqMarmoLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Marmoset", "Lemur"))
+
+HCB_MacaqLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Lemur"))
+
+HCB_MarmoLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Marmoset", "Lemur"))
+
+HCB_SquiMonk = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Squirrel Monkey"))
+
+HCB_Lemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp","Baboon", "Lemur") )
+
+HCB_MacacaMarmoLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaca", "Marmoset", "Lemur"))
+
+HCB_MacacaMarmoSquiMonk = GetIDs(Primates_circRNA_BSJconsv, c("Human","Chimp", "Baboon", "Macaca","Marmoset", "Squirrel Monkey"))
+
+AllTillLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human","Chimp", "Baboon", "Macaca","Marmoset", "Squirrel Monkey", "Lemur"))
+
+HCB_MarmoSqui = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Marmoset", "Squirrel Monkey"))
+
+HCB_MacaqMarmoSqui = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Marmoset", "Squirrel Monkey"))
+
+AllButMacaca = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Marmoset", "Squirrel Monkey", "Lemur"))
+
+HCB_MacacaLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaca", "Lemur"))
+
+HCB_MacacaSquiLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaca", "Squirrel Monkey", "Lemur"))
+
+HCB_MacaqSquiLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Squirrel Monkey", "Lemur"))
+
+AllButMacaq = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaca", "Marmoset", "Squirrel Monkey", "Lemur"))
+
+HCB_SquiLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Squirrel Monkey", "Lemur"))
+
+HCB_SquiMarmoLemur = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Squirrel Monkey", "Marmoset", "Lemur"))
+
+AllButMarmo = GetIDs(Primates_circRNA_BSJconsv, c("Human", "Chimp", "Baboon", "Macaque", "Macaca", "Squirrel Monkey", "Lemur"))
+
+###################################Join IDs and Make Heatmap with just Human And Chimp Tissues samples
+
+IDs_Conserved = c(HumanChimpBaboon, HumanOldWorld, HumanOldNotMacaca, Human2BaboonAndMacaca, Human2MacaqueAndMarmoset,
+             HumanUntilMarmoset , HumanChimpBaboonAndMarmoset, HumanUntilSquirrel, HumanUntilSquirrelNotMarmo, HumanChimpBabMacacaMarmo,
+             HCB_MacaqSquiMonk, HCB_MacacaSquiMonk, HCB_MacaqMacacaLemur, HCB_MacaqMacacaMarmoLemur, HCB_MacaqMarmoLemur,
+             HCB_MacaqLemur, HCB_MarmoLemur, HCB_SquiMonk, HCB_Lemur, HCB_MacacaMarmoLemur, HCB_MacacaMarmoSquiMonk,
+             AllTillLemur, HCB_MarmoSqui, HCB_MacaqMarmoSqui, AllButMacaca, HCB_MacacaLemur, HCB_MacacaSquiLemur,
+             HCB_MacaqSquiLemur, AllButMacaq, HCB_SquiLemur, HCB_SquiMarmoLemur, AllButMarmo) #775
+
+
+#Save IDs for Genomic Features Matrix
+
+save(IDs_Conserved,file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/IDs_Conserved")
+load(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/IDs_Conserved")
+
+#ConservedPSI = Primates_circRNA_PSI[IDs_Union, grep("Human|Chimp", colnames(Primates_circRNA_PSI))]
+
+#ConservedPSI = Primates_circRNA_PSI[IDs_Conserved, grep("Human|Chimp|Baboon", colnames(Primates_circRNA_PSI))] #This is the chosen one!
+
+#ConservedPSI = Primates_circRNA_PSI[IDs_Conserved, grep("Human|Chimp|Baboon|Macaca|Macaque|Marmoset|Squirrel", colnames(Primates_circRNA_PSI))] 
+
+
+#ConservedPSI = Primates_circRNA_PSI[HumanOldWorld, grep("Human|Chimp|Bonobo|Macaque|Macaca", colnames(Primates_circRNA_PSI))]
+
+#Only HumanUntilMarmoset
+#ConservedPSI = Primates_circRNA_PSI[HumanUntilMarmoset, grep("Human|Chimp|Bonobo|Macaque|Macaca|Marmoset", colnames(Primates_circRNA_PSI))] #Cant
+
+#Add HumanOldWorld, with HumanUntilMarmoset (You use this for paper as general)
+ConservedPSI = Primates_circRNA_PSI[c(HumanOldWorld, HumanUntilMarmoset), grep("Human|Chimp|Bonobo|Macaque|Macaca|Marmoset", colnames(Primates_circRNA_PSI))]
+
+
+#With Macaque And Marmo Human2MacaqueAndMarmoset
+#ConservedPSI = Primates_circRNA_PSI[c(HumanOldWorld,Human2MacaqueAndMarmoset), 
+#                                    grep("Human|Chimp|Bonobo|Macaque|Macaca|Marmoset", colnames(Primates_circRNA_PSI))]
+
+
+#Add HumanOldWorld, with HumanUntilMarmoset and SquirrelMonkey
+#ConservedPSI = Primates_circRNA_PSI[c(HumanOldWorld, HumanUntilMarmoset, HumanUntilSquirrel), grep("Human|Chimp|Bonobo|Macaque|Macaca|Marmoset", colnames(Primates_circRNA_PSI))]
+
+
+
+
+```
+
+
+
+```{r}
+
+
+ConservedPSI[is.na(ConservedPSI)] <- 0
+
+Corr_PSI = as.data.frame(matrix(ncol=ncol(ConservedPSI), nrow = ncol(ConservedPSI)))
+colnames(Corr_PSI) = colnames(ConservedPSI)
+rownames(Corr_PSI) = colnames(ConservedPSI)
+
+
+for (c in colnames(Corr_PSI)) {
+  
+  for (d in rownames(Corr_PSI)) {
+   
+    cor = cor.test(ConservedPSI[,c], ConservedPSI[,d],
+                   method = "pearson", alternative = "greater")
+  
+
+    #print(c(c, d))
+    
+    Corr_PSI[d,c] = cor$estimate
+    
+  }
+  
+}
+
+
+pheatmap(data.matrix(Corr_PSI),
+         fontsize_row = 8, fontsize_col = 8,
+         cellwidth = 8, cellheight = 8,
+         treeheight_row = 0, treeheight_col = 0, main = "Conserved circRNAs between Hominoids-Old World Monkeys and Marmoset")
+
+
+
+
+
+```
+
+
+
+
+
+

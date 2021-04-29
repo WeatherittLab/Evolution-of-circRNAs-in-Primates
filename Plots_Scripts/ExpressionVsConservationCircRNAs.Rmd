@@ -1,0 +1,784 @@
+---
+title: "ExpressionVsConservationCircRNAs"
+author: "Gaby"
+date: "3/16/2021"
+output: html_document
+---
+
+```{r, message=FALSE}
+
+library(plyr)
+library(ggplot2)
+#library(ComplexHeatmap)
+library(dplyr)
+#library(Manu)
+#library(extrafont)
+library(gridExtra)
+
+
+```
+
+
+Make a ggplot theme
+
+```{r, eval =FALSE}
+
+theme_bird <- function(base_size = 11, base_family="") {
+  theme_bw() %+replace%
+  theme(
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "#D1C7B5"),
+    panel.border = element_rect(color = "#D1C7B5", fill=NA),
+    axis.line = element_line(color = "#6C90B9"),
+    axis.ticks = element_line(color = "#6C90B9"),
+    axis.text = element_text(color = "#313657")
+  )
+}
+
+
+```
+
+
+Comparison of expression of different sets of circRNAs according to conservation. For this we'll use the info from the InfoConservedCircRNAs and the InfoTissueConservedCircRNAs tables that have the set of comparison (Conserved Vs. Non-Conserved and Tissue Conserved Vs. Non-Conserved). 
+
+Load tables
+
+```{r}
+
+
+InfoConservedCircRNAs = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/ConservedCircRNAs_Bob1.txt",
+                                   header = TRUE, as.is = TRUE)
+
+
+InfoTissueConservedCircRNAs = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/TissueConservedCircRNAs_Bob2.txt",
+                                         header = TRUE, as.is = TRUE)
+
+```
+
+
+To get Expression values of circRNAs we are going to calculate *Relative TpMs* (circRNA TpMs) as below formlula:
+
+TpM circRNA = (Reads circRNA * TpM Gene) / Reads Gene
+
+Therefore we upload Gene expression and BSJ info (of all primates (?))
+
+Load PSI tables of Human
+
+```{r}
+
+
+#GeneNames files
+GeneNames = read.delim(file="/home/gaby/lab_Garvan/Human_Data/Human_Ensembl_CodingGenes.txt",
+                       header = TRUE, as.is = TRUE)
+
+
+path_whippet = "/home/gaby/lab_Garvan/Primates/Whippet_CircRNAs/BS/"
+
+#Read human files (BS whippet info for all samples)
+
+read.files <- function(path, primate, suffix_file) {
+  
+  path = paste(path, primate, sep="/")
+  
+  Files = list.files(path = path, pattern = suffix_file)
+  
+  #Make a DF with the tissue and the file of that tissue
+  
+  if (primate ==  "Macaque") {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", gsub(".*ian_","", Files)),
+                             File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+    
+  } 
+  
+    if ( primate == "Chimp") {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", gsub(".*ee_","", Files)),
+                             File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+  }
+
+  
+  if (primate == "Human" ) {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", Files),
+                          File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE )
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+  }
+  
+    if ( primate == "Baboon") {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", gsub(".*oon_","", Files)),
+                             File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+  }
+
+  
+  
+  if ( primate == "Lemur") {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", gsub(".*ur_","", Files)),
+                             File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+  }
+
+  
+  if ( primate == "Marmoset") {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", gsub(".*set_","", Files)),
+                            File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+  }
+
+  
+  if ( primate == "SquirrelMonkey") {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", gsub(".*key_","", Files)),
+                             File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+  }
+  
+  
+  if ( primate == "Macaca") {
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", gsub(".*an_","", Files)),
+                             File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+  }
+
+  
+  
+  ##Add the number of replicates to the Var_Name
+  
+  temp_table = c()
+  
+  for (v in unique(Files_DF$Var_Name)) {
+      
+    temp_table = table(Files_DF[grep(v, Files_DF$Var_Name), "Var_Name"])
+    
+    Files_DF[grep(v, Files_DF$Var_Name), "Var_Name"] = paste(Files_DF[grep(v, Files_DF$Var_Name), "Var_Name"],
+                                                             seq(1:temp_table), sep = "_")
+    
+  }
+  
+  #Read files and assign variale name according to the Files_DF and save them in a LIST
+
+  temp_file = data.frame()
+  
+  DF = vector(mode = "list", length = length(Files_DF$File))
+  
+  names(DF) = Files_DF$Var_Name
+  
+  for (f in Files_DF$File) {
+    
+    temp_file = read.delim(gzfile(f), header = FALSE, as.is = TRUE)
+    
+    DF[[ Files_DF[match(f, Files_DF$File), "Var_Name"]  ]] = temp_file
+    
+    
+    
+  }
+  
+  return(DF)
+
+}
+
+
+Human_PSI_DFs = read.files(path_whippet, "Human", ".psi.gz_BS")
+
+#Rename columns and Filter
+
+cols = c("Gene", "Node", "Coord", "Strand", "Type", "Psi", "CI_Width", 
+         "CI_Lo,Hi", "Total_Reads", "Complexity", "Entropy", "Inc_Paths","Exc_Paths", "Edges")
+
+Human_PSI_DFs = lapply(Human_PSI_DFs, setNames, nm=cols)
+
+#Filter columns
+col_filt = c("Gene", "Node", "Coord", "Strand", "Type", "Psi","Total_Reads")
+
+Human_PSI_DFs = lapply(Human_PSI_DFs, "[", col_filt)
+
+
+
+##Add ID to Human_PSI_DFs (EnsemblGene_Node) and IDCoord (ID_GeneNameCoord)
+#Also add GeneName
+
+for (i in names(Human_PSI_DFs)) {
+  
+  
+  Human_PSI_DFs[[i]][,"ID"] = paste(Human_PSI_DFs[[i]][["Gene"]], Human_PSI_DFs[[i]][["Node"]], sep="_")
+  
+  #Add GeneName
+  Human_PSI_DFs[[i]][,"GeneName"] = GeneNames[match(Human_PSI_DFs[[i]][["Gene"]], GeneNames$ensembl_gene_id), "external_gene_name"]
+  
+  Human_PSI_DFs[[i]][,"ID_GeneNameCoord"] = paste(Human_PSI_DFs[[i]][["GeneName"]], Human_PSI_DFs[[i]][["Coord"]], sep="_")
+  
+  
+}
+
+
+
+
+```
+
+
+Load Gene Expression of Human Samples 
+
+```{r}
+
+
+######################Get Gene expression info
+
+#Make a function to read all gene_TPM files
+
+path_ge = "~/lab_Garvan/Primates/Human_SamplesData_CircAtlas/WhippetOut"
+
+
+read.genes <- function(path, primate, suffix_file) {
+  
+  path = paste(path, primate, sep = "/")
+  
+  Files = list.files(path = path, pattern = suffix_file)
+
+  if ( primate == "Human" ){
+    
+    path = "~/lab_Garvan/Primates/Human_SamplesData_CircAtlas/WhippetOut"
+    
+    Files = list.files(path = path, pattern = suffix_file)
+    
+    
+    Files_DF = data.frame(Var_Name = gsub("_.*", "", Files),
+                          File = paste(path, Files, sep = "/"), stringsAsFactors = FALSE)
+    
+    
+    Files_DF = Files_DF[order(Files_DF$Var_Name),]
+    
+    
+  }
+  
+   ###Add the number of replicates to the Var_Name
+  
+  temp_table = c()
+  
+  for (v in unique(Files_DF$Var_Name)) {
+    
+    temp_table = table(Files_DF[grep(v, Files_DF$Var_Name), "Var_Name"])
+    
+    Files_DF[grep(v, Files_DF$Var_Name), "Var_Name"] = paste(Files_DF[grep(v, Files_DF$Var_Name), "Var_Name"],
+                                                             seq(1:temp_table), sep = "_")
+    
+  }
+  
+  #Read files and assign variable name according to Files_DF and save them in a LIST
+  temp_file = data.frame()
+  
+  DF = vector(mode="list", length = length(Files_DF$File))
+  
+  names(DF) = Files_DF$Var_Name
+  
+  for (f in Files_DF$File) {
+    
+    temp_file = read.table(gzfile(f), header = TRUE, as.is = TRUE)
+    
+    DF[[ Files_DF[match(f, Files_DF$File), "Var_Name"]  ]] = temp_file
+    
+    
+    
+  }
+  
+  return(DF)
+  
+}
+
+Human_gene_DFs = read.genes(path_ge, "Human", "gene.tpm.gz")
+
+
+###Add GeneName to all
+
+for (i in names(Human_gene_DFs)) {
+  
+  #Add GeneName
+  Human_gene_DFs[[i]][,"GeneName"] = GeneNames[match(Human_gene_DFs[[i]][["Gene"]], GeneNames$ensembl_gene_id), "external_gene_name"]
+  
+  Human_gene_DFs[[i]] = Human_gene_DFs[[i]][complete.cases(Human_gene_DFs[[i]][["GeneName"]]),]
+}
+
+```
+
+
+Filter PSI DFs and Gene Expression DFs according to InfoConservedCircRNAs and InfoTissueConservedCircRNAs
+
+```{r}
+
+AllConserved_circRNAs = unique(c(rownames(InfoConservedCircRNAs), rownames(InfoTissueConservedCircRNAs))) #11,867
+
+AllConserved_Genes = unique(c(InfoConservedCircRNAs$Ensembl_ID, InfoTissueConservedCircRNAs$Ensembl_ID)) #2,372
+  
+###Subset Human_gene_DFs and Human_PSI_DFs
+#use the same loop for both List of dataframes as they have the same sample names
+
+for (s in names(Human_gene_DFs)) {
+  
+  Human_gene_DFs[[s]] = Human_gene_DFs[[s]][Human_gene_DFs[[s]][["Gene"]] %in% AllConserved_Genes, ]
+  
+  Human_PSI_DFs[[s]] = Human_PSI_DFs[[s]][Human_PSI_DFs[[s]][["ID"]] %in% AllConserved_circRNAs, ]
+  
+}
+
+
+
+```
+
+
+
+
+```{r}
+
+###Calculate Relative TPM of circRNAs
+#Add the TpM and Read_Counts of the Gene
+#Do regla de 3 
+
+for (i in names(Human_PSI_DFs)) {
+  
+  Human_PSI_DFs[[i]][["TpM_Gene"]] = Human_gene_DFs[[i]][match(Human_PSI_DFs[[i]][["Gene"]], Human_gene_DFs[[i]][["Gene"]]),"TpM"]
+  
+  Human_PSI_DFs[[i]][["Reads_Gene"]] = Human_gene_DFs[[i]][match(Human_PSI_DFs[[i]][["Gene"]], Human_gene_DFs[[i]][["Gene"]]),"Read_Counts"]
+  
+  ##Add the relative Tpm of circ
+  Human_PSI_DFs[[i]][["TpM_circRNA"]] = ( (Human_PSI_DFs[[i]][["Total_Reads"]]) * (Human_PSI_DFs[[i]][["TpM_Gene"]]) ) / Human_PSI_DFs[[i]][["Reads_Gene"]]
+  
+    
+}
+
+
+#Subset Info Needed (Psi, ID, ID_GeneNameCoord, TpM_circRNA) to compare Replicates of same tissue
+cols = c("Psi", "ID", "ID_GeneNameCoord", "TpM_circRNA")
+
+Human_PSI_DFs_filt = lapply(Human_PSI_DFs, "[", , cols)
+
+
+#Make List of Combination of samples (replicates) according to tissues in Human_PSI_DFs that have at least 2 replicates
+
+tissues = gsub("_.*", "", names(Human_PSI_DFs))
+table_tissues = table(tissues)
+
+tissues_filt = names(table_tissues[which(table_tissues >=2)])
+
+
+#samples_PSI_DFs are the names of the samples in <Primate>_PSI_DFs
+#tissues are the tissues we know have at least 2 replicates in such samples to be able to make the combinations
+
+MakeCombinationSamples <- function(samples_PSI_DFs, tissues) {
+  
+  List_Comb = vector(mode="list", length = length(tissues))
+  names(List_Comb) = tissues
+  
+  for (t in names(List_Comb)) {
+    
+    List_Comb[[t]] = combn(samples_PSI_DFs[grep(t, samples_PSI_DFs)],2)
+    colnames(List_Comb[[t]]) = paste("Comb", 1:ncol(List_Comb[[t]]), sep="_")
+    
+  }
+  
+  return(List_Comb)
+  
+}
+
+List_CombHuman = MakeCombinationSamples(names(Human_PSI_DFs_filt), tissues_filt)
+
+
+#Make a function that according to a define input tissue it takes takes the TpM_circRNA of the samples of such tissue
+#Then makes a matrix witn TpMcircRNA and Category (according to InfoConservedCircRNAs or InfoTissueConservedCircRNAs) accordin to the combinations of List_CombHuman of such tissue
+#and makes the scatter plot comparing both replicates and showing the category of the circRNAs
+
+PlotComb <- function(tissue, List_CombHuman, PSI_DFs_filt, InfoConsv) {
+  
+  #Make a single matrix of all samples TpM_circRNA 
+  Tissue_PSI_DFs = PSI_DFs_filt[grep(tissue, names(PSI_DFs_filt))]
+  
+  IDs = unique(as.vector(unlist(lapply(Tissue_PSI_DFs, "[", , "ID"))))
+  
+  DF_samples = as.data.frame(matrix (nrow=length(IDs), ncol = length(Tissue_PSI_DFs)+1) ) # add a column to add the ID_GeneNameCoord
+  colnames(DF_samples) = c(names(Tissue_PSI_DFs), "ID_GeneNameCoord")
+  rownames(DF_samples) = IDs
+  
+  #Add info of each replicate into DF_samples
+  
+  for (t in names(Tissue_PSI_DFs)) {
+    
+    common_rows = intersect(Tissue_PSI_DFs[[t]][["ID"]], rownames(DF_samples))
+    
+    DF_samples[common_rows, t] = Tissue_PSI_DFs[[t]][match(Tissue_PSI_DFs[[t]][["ID"]],common_rows),"TpM_circRNA"]
+    DF_samples[common_rows, "ID_GeneNameCoord"] =  Tissue_PSI_DFs[[t]][match(Tissue_PSI_DFs[[t]][["ID"]],common_rows),"ID_GeneNameCoord"]
+    
+  }
+  
+  rows_filt = intersect(rownames(InfoConsv), rownames(DF_samples))
+  #Subset DF_samples according to IDs in InfoConsv
+  DF_samples = DF_samples[rows_filt,]
+  
+  
+  
+  
+  #AQUII
+  ##Due to plot we removed an outlier (max value between Replicate 1 and 2 in Brain)
+  if (tissue == "Brain") {
+   
+    rows_rm_names = rownames(DF_samples[which(DF_samples$Brain_3 >= 40),])
+    
+    rows_rm = which(DF_samples$Brain_3 >= 40)
+    
+    DF_samples = DF_samples[-rows_rm,]
+    
+    rows_filt = setdiff(rows_filt, rows_rm_names)
+     
+  }
+  
+  
+  ##Add Category to DF_samples
+  DF_samples$Category = InfoConsv[rows_filt,"Category"]
+  
+  
+  
+  ###PLOT according to List_CombHuman
+  #get the combinations of the tissue of interest from List_CombHuman
+  List_tissue = List_CombHuman[[tissue]]
+  
+  
+  Plots = vector(mode = "list", length = ncol(List_tissue))
+  names(Plots) = colnames(List_tissue)
+  
+  
+  for (c in colnames(List_tissue)) {
+    
+    #subset combination of samples to compare and the ID_GeneNameCoord
+    data = DF_samples[,c(List_tissue[,c], "ID_GeneNameCoord","Category")]
+    #rename columns to have the same IDs when plotting
+    colnames(data) = c("RepA", "RepB", "ID", "Consv")
+    
+    #define x and y cutoff from which you want labels start to appear
+    xfilt = max(data$RepA, na.rm = TRUE)/3
+  
+    yfilt = max(data$RepB, na.rm = TRUE)/3
+    
+    
+    Plots[[c]] = ggplot(data, aes(x = RepA, y = RepB, color=Consv, shape=Consv)) + #can add , label=ID
+                  geom_point(size=3) +
+                  #geom_label(
+                    #data=data %>% filter(RepA >= xfilt & RepB >= yfilt)) +
+                    #aes(label=ID)
+                  theme_bw() +
+                  theme(legend.title = element_text(size=16), legend.text = element_text(size = 15),
+                  axis.text = element_text(size = 12)) +
+                  ggtitle(paste("Expression of Conserved and Non Conserved circRNAs in Human samples of", tissue, sep=" ")) +
+                xlab(List_tissue[1,c]) + ylab(List_tissue[2,c]) +
+                scale_color_manual(values =c('#E69F00','#999999'))
+                
+              
+  }
+  
+  return(Plots)
+
+}
+
+
+Plots_Brain = PlotComb("Brain",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #3
+
+Plots_Cerebellum = PlotComb("Cerebellum",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #1
+  
+Plots_FrontalCortex = PlotComb("FrontalCortex",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #1
+
+
+Plots_Colon = PlotComb("Colon",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #6
+
+Plots_Heart = PlotComb("Heart",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #6
+  
+Plots_Liver = PlotComb("Liver",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #3
+Plots_SkMus = PlotComb("SkeletalMuscle",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #3
+  
+Plots_Lung = PlotComb("Lung",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #6
+Plots_Spleen = PlotComb("Spleen",List_CombHuman, Human_PSI_DFs_filt, InfoConservedCircRNAs) #3
+  
+
+
+###Add grid
+grid.arrange(Plots_Cerebellum$Comb_1, Plots_FrontalCortex$Comb_1,  Plots_Colon$Comb_3,
+             Plots_Heart$Comb_1, Plots_Liver$Comb_3, Plots_SkMus$Comb_1,
+             Plots_Lung$Comb_6, Plots_Spleen$Comb_2, nrow=3, ncol=3)
+
+
+###Plot according to TissueConserved
+
+
+PlotsTissue_Brain = PlotComb("Brain",List_CombHuman, Human_PSI_DFs_filt, InfoTissueConservedCircRNAs)
+
+PlotsTissue_Cerebellum = PlotComb("Cerebellum",List_CombHuman, Human_PSI_DFs_filt, InfoTissueConservedCircRNAs)
+  
+PlotsTissue_FrontalCortex = PlotComb("FrontalCortex",List_CombHuman, Human_PSI_DFs_filt, InfoTissueConservedCircRNAs)
+
+
+
+```
+
+
+Compare Relative TpMs of Conserved/Tissue Conserved Vs Non-Conserved in samples
+
+```{r}
+
+PlotViolinRelTpM <- function(tissue, PSI_DFs_filt, InfoConsv) {
+  
+   #Make a single matrix of all samples TpM_circRNA 
+  Tissue_PSI_DFs = PSI_DFs_filt[grep(tissue, names(PSI_DFs_filt))]
+  
+  IDs = unique(as.vector(unlist(lapply(Tissue_PSI_DFs, "[", , "ID"))))
+  
+  DF_samples = as.data.frame(matrix (nrow=length(IDs), ncol = length(Tissue_PSI_DFs)+1) ) # add a column to add the ID_GeneNameCoord
+  colnames(DF_samples) = c(names(Tissue_PSI_DFs), "ID_GeneNameCoord")
+  rownames(DF_samples) = IDs
+  
+  #Add info of each replicate into DF_samples
+  
+  for (t in names(Tissue_PSI_DFs)) {
+    
+    common_rows = intersect(Tissue_PSI_DFs[[t]][["ID"]], rownames(DF_samples))
+    
+    DF_samples[common_rows, t] = Tissue_PSI_DFs[[t]][match(Tissue_PSI_DFs[[t]][["ID"]],common_rows),"TpM_circRNA"]
+    DF_samples[common_rows, "ID_GeneNameCoord"] =  Tissue_PSI_DFs[[t]][match(Tissue_PSI_DFs[[t]][["ID"]],common_rows),"ID_GeneNameCoord"]
+    
+  }
+  
+  rows_filt = intersect(rownames(InfoConsv), rownames(DF_samples))
+  #Subset DF_samples according to IDs in InfoConsv
+  DF_samples = DF_samples[rows_filt,]
+  
+  #Calculate the median across rows
+  
+  DF_samples$Median = apply(DF_samples[,1:length(Tissue_PSI_DFs)], 1, median, na.rm=TRUE)
+  
+  ##Add Category to DF_samples
+  DF_samples$Category = as.factor(InfoConsv[rows_filt,"Category"])
+ 
+  ##To make violin_plot per replicate, you want to compare Consv Vs Non_Conserved
+  #ViolinPlots = vector(mode="list", length = ncol(DF_samples[,grep(tissue, colnames(DF_samples))]) )
+  #names(ViolinPlots) = colnames(DF_samples[,grep(tissue, colnames(DF_samples))])
+  
+  wilcox = c()
+  
+  #for (r in names(ViolinPlots)) {
+    
+  data = DF_samples[,c("Median","Category")]
+  colnames(data) = c("Relative_TpM", "Category")
+
+  
+  #Define colors for Category
+  #myColors = get_pal("Hoiho")[c(4,6)]
+  #names(myColors)[1] = levels(data$Category)[grep("Non Conserved", levels(data$Category), invert = TRUE)]
+  #names(myColors)[2] = levels(data$Category)[grep("Non Conserved", levels(data$Category))]
+  
+ 
+    #remove NAs
+    #data = data[complete.cases(data[,"Relative_TpM"]),]
+    
+    #transform data to log2
+  data[,"Relative_TpM"] = data[,"Relative_TpM"]+1
+  data[,"Relative_TpM"] = log2(data[,"Relative_TpM"])
+    
+    #calculate wilcox.test
+  wilcox = wilcox.test(x = data[grep("Non Conserved", data$Category, invert = TRUE), "Relative_TpM"], 
+                       y = data[grep("Non Conserved", data$Category), "Relative_TpM"],
+                       alternative = "greater")
+    
+  #print(wilcox$p.value)
+    
+    #if (wilcox$p.value)
+    
+    #wilcox$p.value = round(wilcox$p.value, 4)
+    
+    #which title use
+  if (wilcox$p.value <= 0.001) {
+      
+    wilcox_p.value = format(wilcox$p.value, nsmall=4)
+      
+    #title_plot=paste("Significative", paste("(", "p-value = ", wilcox_p.value, ")", sep = ""), 
+    #                   "difference between Conserved and Non Conserved expression of circRNAs", sep=" ")
+     
+    title_plot=paste("(", "p-value = ", wilcox_p.value, ")", sep = "")
+     
+      #print(title_plot)
+      
+  } else {
+      
+    wilcox_p.value = round(wilcox$p.value, 4)
+      
+    #title_plot= paste("No significative", paste("(", "p-value = ", wilcox_p.value, ")", sep = ""), 
+    #                   "difference between Conserved and Non Conserved expression of circRNAs", sep=" ")
+    
+    title_plot=paste("(", "p-value = ", wilcox_p.value, ")", sep = "")
+  
+    }
+    
+  ViolinPlots = ggplot(data, aes(x= Category, y = Relative_TpM, fill = Category )) +
+    geom_violin(trim = FALSE) +
+    scale_fill_manual(values = c('#E69F00', '#999999'))+
+    geom_boxplot(width = 0.1, fill ="white") +
+    theme_bw() +
+    scale_fill_manual(values=c('#E69F00', '#999999'))+
+    labs(title= title_plot)
+
+
+    
+  #}
+  
+  return(ViolinPlots)
+  
+}
+
+
+Brain_ViolinPlot  = PlotViolinRelTpM("Brain", Human_PSI_DFs_filt, InfoConservedCircRNAs)
+#Brain_TissueViolinPlot  = PlotViolinRelTpM("Brain", Human_PSI_DFs_filt, InfoTissueConservedCircRNAs)
+
+Cerebellum_ViolinPlot = PlotViolinRelTpM("Cerebellum", Human_PSI_DFs_filt, InfoConservedCircRNAs)
+#Cerebellum_TissueViolinPlot = PlotViolinRelTpM("Cerebellum", Human_PSI_DFs_filt, InfoTissueConservedCircRNAs)
+
+
+FrontalCortex_ViolinPlot = PlotViolinRelTpM("FrontalCortex", Human_PSI_DFs_filt, InfoConservedCircRNAs)
+#FrontalCortex_TissueViolinPlot = PlotViolinRelTpM("FrontalCortex", Human_PSI_DFs_filt, InfoTissueConservedCircRNAs)
+
+Colon_ViolinPlot = PlotViolinRelTpM("Colon", Human_PSI_DFs_filt, InfoConservedCircRNAs) 
+
+Heart_ViolinPlot = PlotViolinRelTpM("Heart", Human_PSI_DFs_filt, InfoConservedCircRNAs) 
+  
+Liver_ViolinPlot = PlotViolinRelTpM("Liver", Human_PSI_DFs_filt, InfoConservedCircRNAs) #3
+SkMus_ViolinPlot = PlotViolinRelTpM("SkeletalMuscle", Human_PSI_DFs_filt, InfoConservedCircRNAs) #3
+  
+Lung_ViolinPlot = PlotViolinRelTpM("Lung", Human_PSI_DFs_filt, InfoConservedCircRNAs) #6
+Spleen_ViolinPlot = PlotViolinRelTpM("Spleen", Human_PSI_DFs_filt, InfoConservedCircRNAs) #3
+
+  
+###Add grid
+grid.arrange(Cerebellum_ViolinPlot, FrontalCortex_ViolinPlot, Colon_ViolinPlot,
+             Heart_ViolinPlot, Liver_ViolinPlot, SkMus_ViolinPlot,
+             Lung_ViolinPlot, Spleen_ViolinPlot, nrow=3, ncol=3)
+
+
+
+
+
+```
+
+#Brain Scatter Plots
+
+
+```{r, fig.height=10, fig.width=10}
+
+Plots_Brain
+
+```
+
+```{r, fig.height=10, fig.width=10}
+
+PlotsTissue_Brain
+
+```
+
+#Brain Violin Plots
+
+```{r,fig.height=10, fig.width=10}
+
+Brain_ViolinPlot
+
+```
+
+
+```{r,fig.height=10, fig.width=10}
+
+Brain_TissueViolinPlot
+
+```
+
+
+#Cerebellum Scatter Plots
+
+
+```{r, fig.height=10, fig.width=10}
+
+Plots_Cerebellum
+
+```
+
+
+```{r, fig.height=10, fig.width=10}
+
+PlotsTissue_Cerebellum
+
+```
+
+#Cerbellum Violin Plots
+
+```{r,fig.height=10, fig.width=10}
+
+Cerebellum_ViolinPlot
+
+```
+
+```{r,fig.height=10, fig.width=10}
+
+Cerebellum_TissueViolinPlot
+
+```
+
+
+#Frontal Cortex Scatter plots
+
+
+```{r, fig.height=10, fig.width=10}
+
+Plots_FrontalCortex
+
+```
+
+
+```{r, fig.height=10, fig.width=10}
+
+PlotsTissue_FrontalCortex
+
+```
+
+
+#Frontal Cortex Violin plots
+
+```{r,fig.height=10, fig.width=10}
+
+FrontalCortex_ViolinPlot
+
+```
+
+
+```{r,fig.height=10, fig.width=10}
+
+FrontalCortex_TissueViolinPlot
+
+```

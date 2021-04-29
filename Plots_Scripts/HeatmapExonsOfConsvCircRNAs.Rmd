@@ -1,0 +1,120 @@
+---
+title: "HeatmapExonsOfConsvCircRNAs"
+author: "Gaby"
+date: "3/16/2021"
+output: html_document
+---
+
+```{r, message=FALSE}
+
+#Libraries
+library(pheatmap)
+library(factoextra)
+#library(edgeR)
+
+library(ggplot2)
+library(reshape2)
+library(stringr)
+
+```
+
+
+PSI dataframes with exons PSI of IDs_Consv and IDs_TissueConsv
+
+```{r}
+
+
+ConservedExonPSI = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/ConservedExonsPSI.txt",
+                              header = TRUE, as.is = TRUE)
+
+TissueConservedExonPSI = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/TissueConservedExonsPSI.txt",
+                                    header = TRUE, as.is = TRUE)
+
+
+```
+
+
+General Conserved
+
+```{r}
+
+
+ConservedExonPSI = ConservedExonPSI[, grep("Human|Chimp|Baboon", colnames(ConservedExonPSI))] #This is the chosen one!
+
+
+ConservedExonPSI[is.na(ConservedExonPSI)] <- 0
+
+Corr_PSI = as.data.frame(matrix(ncol=ncol(ConservedExonPSI), nrow = ncol(ConservedExonPSI)))
+colnames(Corr_PSI) = colnames(ConservedExonPSI)
+rownames(Corr_PSI) = colnames(ConservedExonPSI)
+
+
+for (c in colnames(Corr_PSI)) {
+  
+  for (d in rownames(Corr_PSI)) {
+   
+    cor = cor.test(ConservedExonPSI[,c], ConservedExonPSI[,d],
+                   method = "pearson", alternative = "greater")
+  
+
+    #print(c(c, d))
+    
+    Corr_PSI[d,c] = cor$estimate
+    
+  }
+  
+}
+
+
+pheatmap(data.matrix(Corr_PSI),
+         fontsize_row = 7, fontsize_col = 7,
+         cellwidth = 7, cellheight = 7,
+         treeheight_row = 0, treeheight_col = 0, main="Exons of Conserved circRNAs")
+
+
+
+```
+
+
+Tissue Conserved
+
+```{r}
+
+
+
+TissueConservedExonPSI = TissueConservedExonPSI[, grep("Human|Chimp|Baboon", colnames(TissueConservedExonPSI))] #This is the chosen one!
+
+
+TissueConservedExonPSI[is.na(TissueConservedExonPSI)] <- 0
+
+Corr_PSI = as.data.frame(matrix(ncol=ncol(TissueConservedExonPSI), nrow = ncol(TissueConservedExonPSI)))
+colnames(Corr_PSI) = colnames(TissueConservedExonPSI)
+rownames(Corr_PSI) = colnames(TissueConservedExonPSI)
+
+
+for (c in colnames(Corr_PSI)) {
+  
+  for (d in rownames(Corr_PSI)) {
+   
+    cor = cor.test(TissueConservedExonPSI[,c], TissueConservedExonPSI[,d],
+                   method = "pearson", alternative = "greater")
+  
+
+    #print(c(c, d))
+    
+    Corr_PSI[d,c] = cor$estimate
+    
+  }
+  
+}
+
+
+pheatmap(data.matrix(Corr_PSI),
+         fontsize_row = 7, fontsize_col = 7,
+         cellwidth = 7, cellheight = 7,
+         treeheight_row = 0, treeheight_col = 0, main = "Exons of Tissue Conserved circRNAs")
+
+
+
+
+```

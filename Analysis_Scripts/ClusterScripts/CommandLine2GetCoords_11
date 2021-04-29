@@ -1,0 +1,3 @@
+#Command line used to get coordinates from Bedintersect_ExonsVsCircRNAs.sh output
+
+awk '{ if ( $5 != "." ) { print $0; } }'  <Primate>_ExonsCircRNA_GTF-CE<PSIcutoff>.bed | cut -f1,2,3,4 > <Primate>_ExonCoords_4LiftOver_GTF-CE<PSIcutoff>.bed

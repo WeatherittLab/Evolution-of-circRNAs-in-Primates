@@ -1,0 +1,13 @@
+#README
+
+In this directory we'll find an example of the commands we use for Cutadapt and WhippetQuant for one primate (Chimpanzee).
+
+The scripts is located in the cluster in the path: /home/gabrod/Scripts/PrimatesCircRNAs/Chimp
+
+For the other primates, they are located in the path: /home/gabrod/Scripts/PrimatesCircRNAs/
+
+and the corresponding directory with the primate name has the scripts for each primate.
+
+
+Also in this directory we'll find the scripts used in the cluster to use bedtools and liftover
+to get the conserved circRNAs from all primates

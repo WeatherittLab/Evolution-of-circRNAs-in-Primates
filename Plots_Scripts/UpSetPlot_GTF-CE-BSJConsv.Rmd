@@ -1,0 +1,85 @@
+---
+title: "UpSetPlot_GTF-CE-BSJConsv"
+author: "Gaby"
+date: "3/4/2021"
+output: html_document
+---
+
+```{r}
+
+
+library(UpSetR)
+library(RColorBrewer)
+library(knitr)
+
+
+```
+
+
+Read files
+
+```{r}
+
+
+BaboonHumanCircs10 = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/BaboonHumanCirc10.txt",
+                                header = TRUE, as.is = TRUE)
+
+LemurHumanCircs10 = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/LemurHumanCirc10.txt",
+                               header = TRUE, as.is = TRUE)  
+
+MacaqueHumanCircs10 = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/MacaqueHumanCirc10.txt",
+                                 header = TRUE, as.is = TRUE)
+  
+MacacaHumanCircs10 = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/MacacaHumanCirc10.txt",
+                                   header = TRUE, as.is = TRUE)  
+
+MarmosetHumanCircs10 = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/MarmosetHumanCirc10.txt",
+                                  header = TRUE, as.is = TRUE)
+
+SquiMonkeyHumanCircs10 = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/SquiMonkeyHumanCirc10.txt",
+                                       header = TRUE, as.is = TRUE)
+
+ChimpHumanCircs10 = read.delim(file="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/ChimpHumanCirc10.txt",
+                                  header = TRUE, as.is = TRUE)
+
+
+```
+
+
+Note: 
+
+
+
+UpSet plot
+
+```{r, fig.width=18, fig.height= 10}
+
+HumanTot = unique(c(ChimpHumanCircs10$Human_CircID,
+                BaboonHumanCircs10$Human_CircID, 
+                LemurHumanCircs10$Human_CircID, 
+                MacacaHumanCircs10$Human_CircID, 
+                MacaqueHumanCircs10$Human_CircID, 
+                MarmosetHumanCircs10$Human_CircID,
+                SquiMonkeyHumanCircs10$Human_CircID))
+
+Primates_circRNA_BSJconsv = list("Human" =  HumanTot,
+                "Chimp" = ChimpHumanCircs10$Human_CircID,
+                "Baboon" = BaboonHumanCircs10$Human_CircID,
+                "Lemur" = LemurHumanCircs10$Human_CircID,
+                "Macaca" = MacacaHumanCircs10$Human_CircID,
+                "Macaque" = MacaqueHumanCircs10$Human_CircID,
+                "Marmoset" = MarmosetHumanCircs10$Human_CircID,
+                "Squirrel Monkey" = SquiMonkeyHumanCircs10$Human_CircID)
+
+
+save(Primates_circRNA_BSJconsv, 
+     file ="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/Primates_circRNA_BSJconsv")
+
+load( file ="~/lab_Garvan/Primates/Whippet_CircRNAs/Intersect_ExonsGTFs_CircRNAs/ForLiftOver/LiftOverResults/PSI_10/GTF-CE/Conserved_BSJ/Primates_circRNA_BSJconsv")
+
+upset(fromList(Primates_circRNA_BSJconsv), order.by = "freq",  sets = names(Primates_circRNA_BSJconsv), 
+      sets.bar.color = "darkgoldenrod2", matrix.color = "darkgoldenrod2", 
+      text.scale = 1.5, shade.color = "darkgoldenrod2", main.bar.color = "darkgoldenrod2", nintersects= NA)
+
+
+```
